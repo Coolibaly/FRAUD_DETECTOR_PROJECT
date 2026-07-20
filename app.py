@@ -34,7 +34,7 @@ PALETTE = {
 
 st.set_page_config(
     page_title="Détecteur de fraude carte bancaire explicable",
-    page_icon="🕵️", layout="wide", initial_sidebar_state="expanded",
+    page_icon="", layout="wide", initial_sidebar_state="expanded",
 )
 
 st.markdown(
@@ -128,19 +128,12 @@ def shap_bar_chart(features, values, title=""):
     return fig
 
 
-def governance_banner():
-    st.markdown(
-        f'<div class="governance-banner">⚖️ <b>Gouvernance :</b> {RISK_REVIEW_NOTICE} '
-        f'Ce tableau de bord produit des <b>alertes</b>, jamais des décisions automatiques.</div>',
-        unsafe_allow_html=True,
-    )
-
 
 # --------------------------------------------------------------------------------------
 # Sidebar
 # --------------------------------------------------------------------------------------
 
-st.sidebar.title("🕵️ Détecteur de fraude")
+st.sidebar.title("Détecteur de fraude")
 st.sidebar.caption("Classification déséquilibrée & explicabilité — équipes conformité")
 
 if "retrain_token" not in st.session_state:
@@ -148,7 +141,7 @@ if "retrain_token" not in st.session_state:
 if "selected_tx" not in st.session_state:
     st.session_state.selected_tx = None
 
-with st.sidebar.expander("📁 Charger un autre fichier de transactions", expanded=False):
+with st.sidebar.expander("Charger un autre fichier de transactions", expanded=False):
     st.caption(
         f"Schéma attendu : `{', '.join(EXPECTED_COLUMNS)}`. "
         f"Déposez votre fichier ici pour ré-entraîner le pipeline dessus."
@@ -178,7 +171,7 @@ with st.sidebar.expander("📁 Charger un autre fichier de transactions", expand
         except Exception as e:
             st.error(f"Impossible de lire ce fichier : {e}")
 
-with st.sidebar.expander("🤖 Rapports générés par IA", expanded=False):
+with st.sidebar.expander("Rapports générés par IA", expanded=False):
     st.caption(
         "Fournissez votre propre clé API Anthropic pour générer les rapports "
         "d'alerte avec Claude. Sans clé, un générateur par règles (même ton, "
@@ -188,10 +181,6 @@ with st.sidebar.expander("🤖 Rapports générés par IA", expanded=False):
     st.caption(f"Modèle utilisé : `{DEFAULT_MODEL}`")
 
 st.sidebar.divider()
-st.sidebar.caption(
-    "⚠️ Licence du dataset Kaggle à revalider avant toute diffusion : "
-    "[fiche Kaggle](https://www.kaggle.com/datasets/somnathpaul71/credit-card-fraud-detection-new)."
-)
 
 # --------------------------------------------------------------------------------------
 # Chargement
@@ -226,18 +215,6 @@ else:
 # --------------------------------------------------------------------------------------
 
 st.title("Détecteur de fraude carte bancaire explicable")
-st.caption("Classification déséquilibrée · SHAP/LIME · calibration · rapports d'alerte en langage métier")
-governance_banner()
-
-if meta.get("near_perfect_separation_warning"):
-    st.warning(
-        "🔎 **Constat important sur les données** : ce corpus permet une séparation quasi "
-        "parfaite entre fraude et transactions légitimes (PR-AUC/ROC-AUC ≈ 1,0 — voir l'onglet "
-        "**Biais du jeu de données**). C'est inhabituel pour de la fraude bancaire réelle et "
-        "suggère un jeu de démonstration/pédagogique plutôt que des transactions brutes non "
-        "filtrées. Les résultats affichés sont réels (aucune donnée n'a été truquée), mais ne "
-        "doivent pas être présentés comme représentatifs de la difficulté d'un cas réel."
-    )
 
 tab_overview, tab_perf, tab_explain, tab_explorer, tab_bias, tab_method = st.tabs(
     ["📊 Vue d'ensemble", "🎯 Performance", "🔍 Explicabilité", "📋 Explorateur",
