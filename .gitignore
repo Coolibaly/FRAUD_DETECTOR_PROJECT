@@ -1,0 +1,9 @@
+models/*.joblib
+models/*.pkl
+models/*.csv
+models/metadata.json
+models/train.log
+__pycache__/
+*.pyc
+.streamlit/
+venv/

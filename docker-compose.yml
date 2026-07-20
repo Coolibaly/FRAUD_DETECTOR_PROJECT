@@ -1,0 +1,22 @@
+# Lancement simplifié : docker compose up --build
+# Dashboard accessible sur http://localhost:8501
+#
+# Les dossiers data/ et models/ sont montés en volume : vos données et les
+# artefacts entraînés persistent entre les redémarrages du conteneur, et vous
+# pouvez déposer votre propre data.csv directement dans ./data sans reconstruire
+# l'image.
+services:
+  fraud-detector:
+    build: .
+    image: fraud-detector:latest
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+    environment:
+      # Optionnel : décommentez et renseignez votre propre clé pour activer les
+      # rapports d'alerte générés par Claude (sinon, repli par règles automatique).
+      # - ANTHROPIC_API_KEY=sk-ant-...
+      - ANTHROPIC_MODEL=claude-sonnet-5
+    restart: unless-stopped

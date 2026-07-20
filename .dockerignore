@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+.git/
+.gitignore
+venv/
+.venv/
+.streamlit/
+*.egg-info/
+.pytest_cache/
+demo/
+README.md

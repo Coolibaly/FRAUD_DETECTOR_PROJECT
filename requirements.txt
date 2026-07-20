@@ -1,0 +1,10 @@
+Pandas>=2.2,<4.0
+numpy>=1.26
+scikit-learn>=1.4
+imbalanced-learn>=0.12
+shap>=0.45
+lime>=0.2.0.1
+streamlit>=1.38
+plotly>=5.22
+joblib>=1.4
+anthropic>=0.34

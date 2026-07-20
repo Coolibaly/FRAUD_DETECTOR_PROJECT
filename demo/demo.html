@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Détecteur de fraude </title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink-900:#11151c; --ink-800:#1b222c; --ink-700:#262f3b; --ink-600:#333e4c;
+    --text-hi:#edeee9; --text-dim:#98a2ab; --text-faint:#6b7580;
+    --signal-red:#d6432f; --signal-red-soft:#f0a08f;
+    --signal-amber:#e8a33c; --signal-amber-soft:#f3c98a;
+    --signal-teal:#2f8f7a; --signal-teal-soft:#8fc4b6;
+    --steel:#5b7a9d;
+    --font-display:'Space Grotesk',ui-sans-serif,system-ui,sans-serif;
+    --font-body:'IBM Plex Sans',ui-sans-serif,system-ui,sans-serif;
+    --font-mono:'IBM Plex Mono',ui-monospace,'SF Mono',Consolas,monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{ background:var(--ink-900); color:var(--text-hi); font-family:var(--font-body); -webkit-font-smoothing:antialiased; }
+  .root{ max-width:1180px; margin:0 auto; padding:28px 20px 40px; }
+
+  .eyebrow{ font-family:var(--font-mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--signal-amber); margin:0 0 6px; }
+  h1{ font-family:var(--font-display); font-weight:700; font-size:clamp(22px,3.4vw,32px); margin:0 0 6px; letter-spacing:-.01em; }
+  .subhead{ color:var(--text-dim); font-size:14px; margin:0 0 16px; max-width:680px; line-height:1.5;}
+  .subhead b{ color:var(--text-hi); font-weight:500; }
+
+  .governance{
+    background:rgba(232,163,60,.10); border:1px solid rgba(232,163,60,.35); border-left:3px solid var(--signal-amber);
+    border-radius:8px; padding:10px 14px; font-size:12.5px; color:var(--text-hi); margin-bottom:18px; line-height:1.5;
+  }
+  .caveat{
+    background:rgba(214,67,47,.08); border:1px solid rgba(214,67,47,.3); border-left:3px solid var(--signal-red);
+    border-radius:8px; padding:10px 14px; font-size:12.5px; color:var(--text-hi); margin-bottom:18px; line-height:1.5;
+  }
+
+  .kpi-strip{ display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:10px; margin-bottom:20px; }
+  .kpi{ background:var(--ink-800); border:1px solid var(--ink-600); border-radius:10px; padding:12px 14px; position:relative; overflow:hidden; }
+  .kpi::before{ content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--steel); }
+  .kpi.warn::before{ background:var(--signal-amber); }
+  .kpi-label{ font-size:10.5px; text-transform:uppercase; letter-spacing:.08em; color:var(--text-dim); margin-bottom:5px;}
+  .kpi-value{ font-family:var(--font-mono); font-size:19px; font-weight:600; color:var(--text-hi); }
+
+  .layout{ display:grid; grid-template-columns:1.4fr 1fr; gap:18px; align-items:start; }
+  @media (max-width:860px){ .layout{ grid-template-columns:1fr; } }
+
+  .panel{ background:var(--ink-800); border:1px solid var(--ink-600); border-radius:14px; padding:18px 18px 20px; }
+  .panel h2{ font-family:var(--font-display); font-size:15px; font-weight:600; margin:0 0 4px; color:var(--text-hi); }
+  .panel .panel-sub{ font-size:12px; color:var(--text-dim); margin:0 0 14px; }
+
+  .filters{ display:flex; gap:6px; margin-bottom:12px; flex-wrap:wrap; }
+  .chip{ font-family:var(--font-mono); font-size:11px; padding:5px 10px; border-radius:100px; border:1px solid var(--ink-600); color:var(--text-dim); cursor:pointer; background:transparent; transition:all .15s ease; }
+  .chip:hover{ border-color:var(--steel); color:var(--text-hi); }
+  .chip.active{ background:var(--steel); color:var(--ink-900); border-color:var(--steel); font-weight:600; }
+
+  .ledger-scroll{ max-height:520px; overflow-y:auto; border-radius:8px; border:1px solid var(--ink-600); }
+  table{ width:100%; border-collapse:collapse; font-size:12px; }
+  thead th{ position:sticky; top:0; background:var(--ink-700); text-align:left; padding:9px 8px; font-family:var(--font-mono); font-weight:500; font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-dim); border-bottom:1px solid var(--ink-600); cursor:pointer; user-select:none; }
+  thead th:hover{ color:var(--text-hi); }
+  tbody td{ padding:7px 8px; border-bottom:1px solid var(--ink-700); font-family:var(--font-mono); }
+  tbody tr{ cursor:pointer; transition:background .1s ease; }
+  tbody tr:hover{ background:var(--ink-700); }
+  tbody tr.selected{ background:var(--ink-600); }
+  td.amount{ text-align:right; }
+  td.proba{ text-align:right; font-weight:600; }
+  .badge{ display:inline-block; padding:2px 7px; border-radius:5px; font-size:10px; font-weight:600; font-family:var(--font-mono); }
+  .badge.fraud{ background:rgba(214,67,47,.18); color:var(--signal-red-soft); }
+  .badge.legit{ background:rgba(47,143,122,.18); color:var(--signal-teal-soft); }
+
+  .empty-state{ color:var(--text-dim); font-size:13px; text-align:center; padding:60px 20px; }
+  .gauge-wrap{ display:flex; flex-direction:column; align-items:center; margin-bottom:6px; }
+  .gauge-readout{ font-family:var(--font-mono); font-size:28px; font-weight:600; margin-top:-36px; }
+  .gauge-sub{ font-family:var(--font-mono); font-size:11px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.08em; }
+  .decision-line{ text-align:center; font-size:13px; margin:10px 0 16px; padding:8px; border-radius:8px; background:var(--ink-700); }
+  .tx-meta{ display:flex; gap:14px; justify-content:center; flex-wrap:wrap; margin-bottom:4px; font-family:var(--font-mono); font-size:11.5px; color:var(--text-dim); }
+  .tx-meta b{ color:var(--text-hi); }
+
+  .contrib-title{ font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-dim); margin:16px 0 10px; }
+  .plain-line{ font-size:12.5px; line-height:1.6; margin-bottom:4px; }
+  .plain-line.up{ color:var(--signal-red-soft); }
+  .plain-line.down{ color:var(--signal-teal-soft); }
+
+  .ai-btn{ width:100%; margin-top:18px; padding:11px 14px; border-radius:9px; border:none; cursor:pointer; background:var(--signal-amber); color:var(--ink-900); font-family:var(--font-body); font-weight:600; font-size:13.5px; transition:filter .15s ease; display:flex; align-items:center; justify-content:center; gap:8px; }
+  .ai-btn:hover{ filter:brightness(1.08); }
+  .ai-btn:disabled{ opacity:.6; cursor:wait; }
+  .ai-result{ margin-top:12px; padding:13px 14px; background:var(--ink-700); border-left:3px solid var(--signal-amber); border-radius:0 8px 8px 0; font-size:13px; line-height:1.55; color:var(--text-hi); display:none; }
+  .ai-source-tag{ font-family:var(--font-mono); font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--signal-amber); margin-bottom:6px; display:block; }
+  .spinner{ width:14px; height:14px; border-radius:50%; border:2px solid rgba(17,21,28,.3); border-top-color:var(--ink-900); animation:spin .7s linear infinite; }
+  @keyframes spin{ to{ transform:rotate(360deg);} }
+
+  footer{ margin-top:26px; font-size:11.5px; color:var(--text-faint); text-align:center; line-height:1.6; }
+  footer a{ color:var(--text-dim); }
+</style>
+</head>
+<body>
+<div class="root">
+
+  <p class="eyebrow">Finance &amp; risque</p>
+  <h1>Détecteur de fraude carte bancaire</h1>
+
+  <div class="kpi-strip" id="kpiStrip"></div>
+
+  <div class="layout">
+    <div class="panel">
+      <h2>Registre des transactions</h2>
+      <div class="filters" id="filters"></div>
+      <div class="ledger-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th data-sort="id">ID</th>
+              <th data-sort="amount">Montant</th>
+              <th data-sort="merchant_type">Commerçant</th>
+              <th data-sort="device_type">Appareil</th>
+              <th data-sort="true_label">Classe réelle</th>
+              <th data-sort="probability">Score</th>
+            </tr>
+          </thead>
+          <tbody id="ledgerBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel" id="inspectorPanel">
+      <h2>Rapport d'alerte</h2>
+      <div id="inspectorContent"><div class="empty-state">← Sélectionnez une transaction dans le registre</div></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const DEMO_DATA = {"kpis": {"n_rows": 10000, "n_fraud": 5000, "fraud_rate": 0.5, "pr_auc": 0.9999776606581803, "roc_auc": 0.9999775999999999, "precision": 0.9976, "recall": 0.9976, "fpr": 0.0024, "fidelity": 0.4520502645502644, "chosen_strategy": "RandomForest (brut, sans traitement)", "source": "real_upload", "near_perfect": true}, "threshold_default": 0.14554493424923318, "transactions": [{"id": 7197, "amount": 499.8776690111539, "hour": 1, "merchant_type": "Online", "device_type": "Mobile", "is_international": 1, "true_label": 1, "probability": 0.9993183493920933, "top_features": [{"feature": "Transaction_Frequency", "value": 12.0, "contribution": 0.2696298895757433}, {"feature": "V4", "value": 2.7319073193703125, "contribution": 0.06458815607876327}, {"feature": "Amount_log", "value": 6.216361897639199, "contribution": 0.05569090819621049}, {"feature": "Is_International", "value": 1.0, "contribution": 0.05296247229993987}, {"feature": "V2", "value": -1.66187546, "contribution": 0.0357242629057887}, {"feature": "Location_Distance", "value": 13.025309604543429, "contribution": -0.026365823028898547}]}, {"id": 5924, "amount": 122.08674346859412, "hour": 0, "merchant_type": "Online", "device_type": "Mobile", "is_international": 1, "true_label": 1, "probability": 0.9993054013803467, "top_features": [{"feature": "Transaction_Frequency", "value": 8.0, "contribution": 0.18097892825443612}, {"feature": "Location_Distance", "value": 414.83535986427415, "contribution": 0.1106996372202943}, {"feature": "V2", "value": -3.159076019, "contribution": 0.10745754002435609}, {"feature": "Is_International", "value": 1.0, "contribution": 0.04264548960620766}, {"feature": "V3", "value": -3.021636547, "contribution": 0.03722781805562845}, {"feature": "V4", "value": 0.1948551312018936, "contribution": -0.017262443257567085}]}, {"id": 6671, "amount": 392.0346014745399, "hour": 0, "merchant_type": "Online", "device_type": "Mobile", "is_international": 1, "true_label": 1, "probability": 0.9993000115476706, "top_features": [{"feature": "Transaction_Frequency", "value": 6.0, "contribution": 0.19164487908951802}, {"feature": "V2", "value": -2.81333022, "contribution": 0.0994061500611818}, {"feature": "Location_Distance", "value": 106.76535858600276, "contribution": 0.09685282104903761}, {"feature": "Is_International", "value": 1.0, "contribution": 0.046332798711328484}, {"feature": "V4", "value": -0.754421075, "contribution": -0.028042701190198853}, {"feature": "Amount_log", "value": 5.973897652458053, "contribution": 0.02710326743458368}]}, {"id": 9942, "amount": 1178.9835687487582, "hour": 0, "merchant_type": "Travel", "device_type": "Mobile", "is_international": 1, "true_label": 1, "probability": 0.9993183493920933, "top_features": [{"feature": "Transaction_Frequency", "value": 8.0, "contribution": 0.13578730183568766}, {"feature": "Location_Distance", "value": 702.8432514856835, "contribution": 0.08813372920509012}, {"feature": "V2", "value": -6.109916072, "contribution": 0.08410957491401144}, {"feature": "Amount_log", "value": 7.073255792573572, "contribution": 0.06907906933200689}, {"feature": "Is_International", "value": 1.0, "contribution": 0.03395673759312448}, {"feature": "V3", "value": -3.245298207, "contribution": 0.03181510426150884}]}, {"id": 6975, "amount": 392.0147843161103, "hour": 22, "merchant_type": "Online", "device_type": "Mobile", "is_international": 1, "true_label": 1, "probability": 0.9993183493920933, "top_features": [{"feature": "Transaction_Frequency", "value": 14.0, "contribution": 0.15057156885675108}, {"feature": "Location_Distance", "value": 329.6571212888828, "contribution": 0.09467773228263836}, {"feature": "V2", "value": -3.012879035, "contribution": 0.08170600306867742}, {"feature": "V4", "value": 3.587185385460125, "contribution": 0.07278465928781469}, {"feature": "Is_International", "value": 1.0, "contribution": 0.036524474670048865}, {"feature": "Amount_log", "value": 5.973847230286642, "contribution": 0.0215893836669624}]}, {"id": 178, "amount": 7.863212679620013, "hour": 3, "merchant_type": "Online", "device_type": "Desktop", "is_international": 1, "true_label": 1, "probability": 0.9993172463537676, "top_features": [{"feature": "Transaction_Frequency", "value": 11.0, "contribution": 0.21434990263669704}, {"feature": "Location_Distance", "value": 200.41865482802123, "contribution": 0.12225541845411335}, {"feature": "Is_International", "value": 1.0, "contribution": 0.0450833908343187}, {"feature": "V2", "value": -1.806783616, "contribution": 0.037052197986891286}, {"feature": "V4", "value": 2.167228074017173, "contribution": 0.03657955495585203}, {"feature": "Amount_log", "value": 2.181909303814964, "contribution": 0.02616408710562783}]}, {"id": 3044, "amount": 146.22574280638864, "hour": 0, "merchant_type": "Online", "device_type": "Mobile", "is_international": 1, "true_label": 1, "probability": 0.9993080304012159, "top_features": [{"feature": "Transaction_Frequency", "value": 8.0, "contribution": 0.17960164223645633}, {"feature": "V2", "value": -2.869939797, "contribution": 0.09374595781650552}, {"feature": "V4", "value": 3.7239468141220673, "contribution": 0.08612245422881074}, {"feature": "Is_International", "value": 1.0, "contribution": 0.04706791542684226}, {"feature": "V3", "value": -2.432310893, "contribution": 0.030979562007430406}, {"feature": "Location_Distance", "value": 52.76982365235267, "contribution": 0.026568173263982336}]}, {"id": 5926, "amount": 297.03879312472617, "hour": 1, "merchant_type": "Online", "device_type": "Mobile", "is_international": 0, "true_label": 1, "probability": 0.9980577763724794, "top_features": [{"feature": "Transaction_Frequency", "value": 10.0, "contribution": 0.41283656038478267}, {"feature": "V2", "value": -1.919165389, "contribution": 0.06623239551198332}, {"feature": "V3", "value": 1.4330121883917546, "contribution": -0.062474534626335766}, {"feature": "Location_Distance", "value": 1.0347571246344556, "contribution": -0.04166169380287783}, {"feature": "Is_International", "value": 0.0, "contribution": -0.03504694439350056}, {"feature": "Hour_of_Day", "value": 1.0, "contribution": 0.02572057311021258}]}, {"id": 6441, "amount": 387.3194456000624, "hour": 4, "merchant_type": "Online", "device_type": "Mobile", "is_international": 1, "true_label": 1, "probability": 0.9993183493920933, "top_features": [{"feature": "Transaction_Frequency", "value": 6.0, "contribution": 0.19816741548594594}, {"feature": "V4", "value": 3.3371529064713514, "contribution": 0.09519934158918912}, {"feature": "Is_International", "value": 1.0, "contribution": 0.0437749887382067}, {"feature": "V3", "value": -2.627812464, "contribution": 0.03591708940826618}, {"feature": "Location_Distance", "value": 55.75229942419976, "contribution": 0.030575119699631264}, {"feature": "Amount_log", "value": 5.961828314288929, "contribution": 0.026397071316539695}]}, {"id": 1527, "amount": 183.59946101047208, "hour": 3, "merchant_type": "Travel", "device_type": "Mobile", "is_international": 1, "true_label": 1, "probability": 0.9992845482790959, "top_features": [{"feature": "Transaction_Frequency", "value": 20.0, "contribution": 0.2663085727285763}, {"feature": "Location_Distance", "value": 174.88912091290095, "contribution": 0.15393032367652282}, {"feature": "Is_International", "value": 1.0, "contribution": 0.05191140737117788}, {"feature": "Device_Type_Mobile", "value": 1.0, "contribution": 0.020258922904091495}, {"feature": "V2", "value": -1.223335613, "contribution": -0.017339363588036588}, {"feature": "V3", "value": -1.110769936, "contribution": 0.0153621346165468}]}, {"id": 1765, "amount": 630.8565465811477, "hour": 2, "merchant_type": "Electronics", "device_type": "Mobile", "is_international": 0, "true_label": 1, "probability": 0.9992114911159549, "top_features": [{"feature": "Transaction_Frequency", "value": 7.0, "contribution": 0.33739714436088414}, {"feature": "Amount_log", "value": 6.448662385124581, "contribution": 0.08573445771936233}, {"feature": "V4", "value": 1.6796556030333418, "contribution": 0.030755261820773292}, {"feature": "Location_Distance", "value": 0.0, "contribution": 0.03022502551496498}, {"feature": "Is_International", "value": 0.0, "contribution": -0.027793163564179584}, {"feature": "Hour_of_Day", "value": 2.0, "contribution": 0.01899813578973783}]}, {"id": 6527, "amount": 916.1526386219592, "hour": 17, "merchant_type": "Online", "device_type": "Mobile", "is_international": 0, "true_label": 1, "probability": 0.9992609946940029, "top_features": [{"feature": "Transaction_Frequency", "value": 6.0, "contribution": 0.19197044842953045}, {"feature": "Location_Distance", "value": 162.33604412227533, "contribution": 0.12382177541603256}, {"feature": "V2", "value": -4.075442227, "contribution": 0.108847897981164}, {"feature": "Amount_log", "value": 6.821273912735951, "contribution": 0.0720448807767701}, {"feature": "V3", "value": 0.8488478282074992, "contribution": -0.03175765386230017}, {"feature": "Is_International", "value": 0.0, "contribution": -0.022997808366126873}]}, {"id": 7728, "amount": 199.8890821, "hour": 2, "merchant_type": "Electronics", "device_type": "Mobile", "is_international": 1, "true_label": 1, "probability": 0.9988249343616346, "top_features": [{"feature": "Transaction_Frequency", "value": 8.0, "contribution": 0.30880433669309465}, {"feature": "V4", "value": 3.176081937166519, "contribution": 0.1115776430456537}, {"feature": "Is_International", "value": 1.0, "contribution": 0.057124060414590984}, {"feature": "V3", "value": 0.6161773675502167, "contribution": -0.038726568803614275}, {"feature": "Location_Distance", "value": 14.803635226129632, "contribution": -0.035873703668826216}, {"feature": "V2", "value": -1.51624365, "contribution": 0.028193921439008975}]}, {"id": 7573, "amount": 3269.088930258873, "hour": 16, "merchant_type": "Online", "device_type": "Mobile", "is_international": 1, "true_label": 1, "probability": 0.9993055851612302, "top_features": [{"feature": "Transaction_Frequency", "value": 11.0, "contribution": 0.185154968113556}, {"feature": "Location_Distance", "value": 274.0315709485546, "contribution": 0.11350282514789187}, {"feature": "Amount_log", "value": 8.092572459319321, "contribution": 0.0858214271242615}, {"feature": "V2", "value": -2.478799553, "contribution": 0.07044785572526659}, {"feature": "Is_International", "value": 1.0, "contribution": 0.039428108220625716}, {"feature": "V4", "value": -0.337554861, "contribution": -0.02474680533010615}]}, {"id": 1760, "amount": 516.4718813548471, "hour": 2, "merchant_type": "Travel", "device_type": "Desktop", "is_international": 0, "true_label": 1, "probability": 0.9990680493477141, "top_features": [{"feature": "Transaction_Frequency", "value": 5.0, "contribution": 0.2459499798316447}, {"feature": "Location_Distance", "value": 96.84360834351304, "contribution": 0.12887387225376487}, {"feature": "Amount_log", "value": 6.2489551881171055, "contribution": 0.09329988229492121}, {"feature": "V3", "value": -2.174457187, "contribution": 0.05620386149539597}, {"feature": "Is_International", "value": 0.0, "contribution": -0.029213375134409955}, {"feature": "V2", "value": -1.092875175, "contribution": -0.02858734280707107}]}, {"id": 8203, "amount": 378.5751456005531, "hour": 18, "merchant_type": "Online", "device_type": "Mobile", "is_international": 1, "true_label": 1, "probability": 0.9992846177547029, "top_features": [{"feature": "Transaction_Frequency", "value": 7.0, "contribution": 0.2129640183358326}, {"feature": "Location_Distance", "value": 119.87719016000828, "contribution": 0.12126891543524855}, {"feature": "V2", "value": -2.56294994, "contribution": 0.08578473706752296}, {"feature": "Is_International", "value": 1.0, "contribution": 0.04411667857457557}, {"feature": "Amount_log", "value": 5.939052589356542, "contribution": 0.02741457082515734}, {"feature": "Device_Type_Mobile", "value": 1.0, "contribution": 0.014891124817516905}]}, {"id": 9268, "amount": 1507.4682883382784, "hour": 0, "merchant_type": "Travel", "device_type": "Desktop", "is_international": 1, "true_label": 1, "probability": 0.9993183493920933, "top_features": [{"feature": "Transaction_Frequency", "value": 8.0, "contribution": 0.1467996351221423}, {"feature": "Location_Distance", "value": 149.2187959398775, "contribution": 0.08681174884473786}, {"feature": "V2", "value": -3.518204133, "contribution": 0.08278460044853911}, {"feature": "Amount_log", "value": 7.318850036394908, "contribution": 0.07190971959085063}, {"feature": "Is_International", "value": 1.0, "contribution": 0.03580907801148867}, {"feature": "V4", "value": 2.4460008352563283, "contribution": 0.03522140118492285}]}, {"id": 888, "amount": 1207.5899483610624, "hour": 3, "merchant_type": "Electronics", "device_type": "Desktop", "is_international": 1, "true_label": 1, "probability": 0.9993183493920933, "top_features": [{"feature": "Transaction_Frequency", "value": 10.0, "contribution": 0.20272172951270606}, {"feature": "Amount_log", "value": 7.097209627130556, "contribution": 0.09258143229832955}, {"feature": "V4", "value": 2.52159707864958, "contribution": 0.0457453598619398}, {"feature": "V2", "value": -1.88393612, "contribution": 0.04337914568901347}, {"feature": "Is_International", "value": 1.0, "contribution": 0.04318094782593932}, {"feature": "V3", "value": -2.126790562, "contribution": 0.03078464958129014}]}, {"id": 1707, "amount": 629.6108394765765, "hour": 14, "merchant_type": "Travel", "device_type": "Mobile", "is_international": 0, "true_label": 1, "probability": 0.9993183493920933, "top_features": [{"feature": "Transaction_Frequency", "value": 11.0, "contribution": 0.19046431967445432}, {"feature": "Location_Distance", "value": 123.72120733862366, "contribution": 0.11355139948149766}, {"feature": "V2", "value": -2.43825877, "contribution": 0.06649911169885316}, {"feature": "Amount_log", "value": 6.446688936110987, "contribution": 0.05862075323649271}, {"feature": "V4", "value": 2.656117630556341, "contribution": 0.04801856191391956}, {"feature": "Is_International", "value": 0.0, "contribution": -0.021268962010316743}]}, {"id": 9902, "amount": 1299.1204085593029, "hour": 1, "merchant_type": "Online", "device_type": "Mobile", "is_international": 0, "true_label": 1, "probability": 0.9993183493920933, "top_features": [{"feature": "Transaction_Frequency", "value": 14.0, "contribution": 0.1768768424860837}, {"feature": "Location_Distance", "value": 245.74093439283195, "contribution": 0.11311368301825706}, {"feature": "Amount_log", "value": 7.1702121611291725, "contribution": 0.08454167968974059}, {"feature": "V2", "value": -2.471439684, "contribution": 0.06144260470732298}, {"feature": "Is_International", "value": 0.0, "contribution": -0.02009533566895101}, {"feature": "V4", "value": 1.6509840085021223, "contribution": 0.020000009946983956}]}, {"id": 1075, "amount": 6.458772398764115, "hour": 4, "merchant_type": "Travel", "device_type": "Mobile", "is_international": 1, "true_label": 1, "probability": 0.9993182356588649, "top_features": [{"feature": "Transaction_Frequency", "value": 7.0, "contribution": 0.22422495906172102}, {"feature": "V2", "value": -2.887888547, "contribution": 0.1140321953696152}, {"feature": "Is_International", "value": 1.0, "contribution": 0.05766784602950138}, {"feature": "V4", "value": 2.136342945875841, "contribution": 0.04195174176528771}, {"feature": "Amount_log", "value": 2.0093908428681293, "contribution": 0.031541777569306595}, {"feature": "Device_Type_Mobile", "value": 1.0, "contribution": 0.015016993635991877}]}, {"id": 423, "amount": 1167.046736, "hour": 21, "merchant_type": "Travel", "device_type": "Mobile", "is_international": 1, "true_label": 1, "probability": 0.999303485430915, "top_features": [{"feature": "Transaction_Frequency", "value": 9.0, "contribution": 0.23031007990112723}, {"feature": "V2", "value": -2.907722875, "contribution": 0.11089392017578711}, {"feature": "Amount_log", "value": 7.063088176286276, "contribution": 0.10030971416121556}, {"feature": "Is_International", "value": 1.0, "contribution": 0.053677821666615604}, {"feature": "Location_Distance", "value": 21.667504452097383, "contribution": -0.02447447548170944}, {"feature": "V3", "value": -1.257200414, "contribution": 0.01693132204390666}]}, {"id": 3333, "amount": 4388.717658460584, "hour": 4, "merchant_type": "Travel", "device_type": "Desktop", "is_international": 1, "true_label": 1, "probability": 0.9993027004454319, "top_features": [{"feature": "Transaction_Frequency", "value": 9.0, "contribution": 0.16601576725587694}, {"feature": "V2", "value": -3.325443361, "contribution": 0.09307094320287133}, {"feature": "Amount_log", "value": 8.387020189299477, "contribution": 0.08091489145747727}, {"feature": "V4", "value": 3.4051098838799816, "contribution": 0.08021127258535966}, {"feature": "Is_International", "value": 1.0, "contribution": 0.041486108863321734}, {"feature": "V3", "value": -2.231862092, "contribution": 0.026453996519863573}]}, {"id": 2959, "amount": 516.9396537205689, "hour": 4, "merchant_type": "Online", "device_type": "Mobile", "is_international": 1, "true_label": 1, "probability": 0.999307509601972, "top_features": [{"feature": "Transaction_Frequency", "value": 11.0, "contribution": 0.17777373846772432}, {"feature": "V2", "value": -4.832085909, "contribution": 0.10580335685230206}, {"feature": "V4", "value": 3.124924122299496, "contribution": 0.07274201747965958}, {"feature": "Amount_log", "value": 6.249858736864053, "contribution": 0.05010914148587607}, {"feature": "Is_International", "value": 1.0, "contribution": 0.04472238506495699}, {"feature": "V3", "value": -1.524372671, "contribution": 0.019030725373759143}]}, {"id": 2193, "amount": 830.4641893127947, "hour": 2, "merchant_type": "Electronics", "device_type": "Mobile", "is_international": 0, "true_label": 1, "probability": 0.9991750981114782, "top_features": [{"feature": "Transaction_Frequency", "value": 7.0, "contribution": 0.29446215907378437}, {"feature": "Amount_log", "value": 6.72318823013224, "contribution": 0.08795499321872557}, {"feature": "V2", "value": -2.05149836, "contribution": 0.07556689459498213}, {"feature": "Is_International", "value": 0.0, "contribution": -0.026376234753151647}, {"feature": "Location_Distance", "value": 0.0, "contribution": 0.02458689961171011}, {"feature": "Device_Type_Mobile", "value": 1.0, "contribution": 0.01711848003237102}]}, {"id": 6313, "amount": 300.70990364572185, "hour": 2, "merchant_type": "Online", "device_type": "Mobile", "is_international": 1, "true_label": 1, "probability": 0.9993183493920933, "top_features": [{"feature": "Transaction_Frequency", "value": 7.0, "contribution": 0.19406787496305788}, {"feature": "V2", "value": -3.624189496, "contribution": 0.11171131951275685}, {"feature": "Is_International", "value": 1.0, "contribution": 0.045745469645281485}, {"feature": "V3", "value": -3.649870887, "contribution": 0.041864890398465124}, {"feature": "V4", "value": 1.8238751422293151, "contribution": 0.02411040783915792}, {"feature": "Location_Distance", "value": 0.0, "contribution": 0.01693125642904355}]}, {"id": 4281, "amount": 141.2223866974474, "hour": 13, "merchant_type": "Travel", "device_type": "Mobile", "is_international": 1, "true_label": 1, "probability": 0.9993183493920933, "top_features": [{"feature": "Transaction_Frequency", "value": 9.0, "contribution": 0.2183328980624576}, {"feature": "Location_Distance", "value": 247.01441222588775, "contribution": 0.12848824073219148}, {"feature": "V2", "value": -2.156549443, "contribution": 0.07496200060832829}, {"feature": "Is_International", "value": 1.0, "contribution": 0.04248813876334938}, {"feature": "V4", "value": 1.914692306995836, "contribution": 0.027200841360732045}, {"feature": "Amount_log", "value": 4.9573919360432015, "contribution": -0.016120579744125826}]}, {"id": 3030, "amount": 214.72893255409411, "hour": 4, "merchant_type": "Travel", "device_type": "Mobile", "is_international": 0, "true_label": 1, "probability": 0.999277515154032, "top_features": [{"feature": "Transaction_Frequency", "value": 14.0, "contribution": 0.28999464343025794}, {"feature": "Location_Distance", "value": 78.84536205884045, "contribution": 0.08984549893402481}, {"feature": "V3", "value": -3.401799557, "contribution": 0.05834278263052198}, {"feature": "V2", "value": -1.493555144, "contribution": 0.03144150279328973}, {"feature": "Is_International", "value": 0.0, "contribution": -0.02574584721066846}, {"feature": "Device_Type_Mobile", "value": 1.0, "contribution": 0.016568780882021704}]}, {"id": 1624, "amount": 1524.000041958639, "hour": 0, "merchant_type": "Travel", "device_type": "Mobile", "is_international": 0, "true_label": 1, "probability": 0.9991641474856915, "top_features": [{"feature": "Transaction_Frequency", "value": 8.0, "contribution": 0.23846483836886173}, {"feature": "V2", "value": -3.651966621, "contribution": 0.11429306721851362}, {"feature": "Amount_log", "value": 7.329749716555373, "contribution": 0.10047128654273253}, {"feature": "V3", "value": 0.3137081676727409, "contribution": -0.02816775134667586}, {"feature": "Is_International", "value": 0.0, "contribution": -0.02554043448493485}, {"feature": "V4", "value": 1.5760044262984505, "contribution": 0.022433618347018812}]}, {"id": 3769, "amount": 83.25449970281268, "hour": 2, "merchant_type": "Travel", "device_type": "Mobile", "is_international": 0, "true_label": 1, "probability": 0.9989878543152165, "top_features": [{"feature": "Transaction_Frequency", "value": 7.0, "contribution": 0.4194420006773177}, {"feature": "V4", "value": 2.27244784, "contribution": 0.06593626847313963}, {"feature": "V3", "value": -2.114955975, "contribution": 0.044637612721291305}, {"feature": "V2", "value": -0.89020746, "contribution": -0.03999438310958896}, {"feature": "Location_Distance", "value": 14.480842785572882, "contribution": -0.03633714420001181}, {"feature": "Is_International", "value": 0.0, "contribution": -0.03332682266281857}]}, {"id": 8053, "amount": 47.56898427424674, "hour": 22, "merchant_type": "Retail", "device_type": "Desktop", "is_international": 0, "true_label": 0, "probability": 0.0006943272600174818, "top_features": [{"feature": "Transaction_Frequency", "value": 1.0, "contribution": -0.24534522378178197}, {"feature": "V2", "value": 0.978833894893566, "contribution": -0.07239956093053167}, {"feature": "Merchant_Type_Retail", "value": 1.0, "contribution": -0.0716205849501896}, {"feature": "Location_Distance", "value": 59.78281492, "contribution": 0.04769482043532777}, {"feature": "V3", "value": 1.145391266665531, "contribution": -0.03539124387210226}, {"feature": "Amount_log", "value": 3.8829851435231024, "contribution": -0.033296580704621555}]}, {"id": 9931, "amount": 60.58898230021458, "hour": 10, "merchant_type": "Food", "device_type": "Mobile", "is_international": 0, "true_label": 0, "probability": 0.0006791431560149913, "top_features": [{"feature": "Transaction_Frequency", "value": 0.0, "contribution": -0.20130993540447648}, {"feature": "V2", "value": 0.8873095440225507, "contribution": -0.06812443781996966}, {"feature": "Merchant_Type_Food", "value": 1.0, "contribution": -0.06120234954976977}, {"feature": "Location_Distance", "value": 13.779377654514803, "contribution": -0.04324881486997563}, {"feature": "V3", "value": 1.643407137747976, "contribution": -0.035743534697290476}, {"feature": "V4", "value": -0.825834649, "contribution": -0.03423060354155895}]}, {"id": 954, "amount": 247.79314462875925, "hour": 23, "merchant_type": "Retail", "device_type": "POS", "is_international": 0, "true_label": 0, "probability": 0.0007111186212151746, "top_features": [{"feature": "Transaction_Frequency", "value": 3.0, "contribution": -0.09421764607136565}, {"feature": "Device_Type_POS", "value": 1.0, "contribution": -0.09119500905797505}, {"feature": "V2", "value": 0.4799328107989457, "contribution": -0.06810144395301071}, {"feature": "Merchant_Type_Retail", "value": 1.0, "contribution": -0.061794074889803555}, {"feature": "Location_Distance", "value": 21.57560668847277, "contribution": -0.045211859741565365}, {"feature": "Is_International", "value": 0.0, "contribution": -0.034429274879749984}]}, {"id": 8035, "amount": 123.41335020309594, "hour": 19, "merchant_type": "Online", "device_type": "Desktop", "is_international": 0, "true_label": 0, "probability": 0.0006791728672669398, "top_features": [{"feature": "Transaction_Frequency", "value": 0.0, "contribution": -0.24579658881555996}, {"feature": "V2", "value": -0.543019135, "contribution": -0.057741462756185094}, {"feature": "Location_Distance", "value": 5.727910775, "contribution": -0.04604166262392736}, {"feature": "V3", "value": 1.5429593341734984, "contribution": -0.04101432842404548}, {"feature": "V4", "value": -0.204174758, "contribution": -0.03325657639234058}, {"feature": "Is_International", "value": 0.0, "contribution": -0.03190311813854442}]}, {"id": 3269, "amount": 291.20874796976466, "hour": 23, "merchant_type": "Electronics", "device_type": "Desktop", "is_international": 0, "true_label": 0, "probability": 0.0007672265608859381, "top_features": [{"feature": "Transaction_Frequency", "value": 2.0, "contribution": -0.21899824758316963}, {"feature": "V2", "value": 1.1956639377845328, "contribution": -0.10743886019075898}, {"feature": "Location_Distance", "value": 1.1059501908433744, "contribution": -0.05676465114428473}, {"feature": "Is_International", "value": 0.0, "contribution": -0.041667116244253594}, {"feature": "V4", "value": 0.1884483546263499, "contribution": -0.034785835649869735}, {"feature": "V3", "value": -0.032439792, "contribution": -0.023172267762138012}]}, {"id": 9393, "amount": 115.7136924561435, "hour": 11, "merchant_type": "Food", "device_type": "Desktop", "is_international": 0, "true_label": 0, "probability": 0.0006791625975003003, "top_features": [{"feature": "Transaction_Frequency", "value": 0.0, "contribution": -0.19651836456805594}, {"feature": "V2", "value": 0.7639281324111726, "contribution": -0.06544460484776635}, {"feature": "Merchant_Type_Food", "value": 1.0, "contribution": -0.06066585233708511}, {"feature": "Location_Distance", "value": 10.685550531717908, "contribution": -0.0411420885958846}, {"feature": "V4", "value": -1.008051157, "contribution": -0.0340191570674816}, {"feature": "Is_International", "value": 0.0, "contribution": -0.029564536565863154}]}, {"id": 6519, "amount": 44.14304518577987, "hour": 3, "merchant_type": "Food", "device_type": "Mobile", "is_international": 0, "true_label": 0, "probability": 0.0006792641412596631, "top_features": [{"feature": "Transaction_Frequency", "value": 0.0, "contribution": -0.2281666363279677}, {"feature": "Merchant_Type_Food", "value": 1.0, "contribution": -0.070282810399945}, {"feature": "V2", "value": 0.4750567312504, "contribution": -0.06861442186069458}, {"feature": "Location_Distance", "value": 2.9637327052998983, "contribution": -0.046890388388402995}, {"feature": "Amount_log", "value": 3.809836230030705, "contribution": -0.031148559332040603}, {"feature": "Is_International", "value": 0.0, "contribution": -0.030805830312581318}]}, {"id": 5837, "amount": 143.1101806522738, "hour": 8, "merchant_type": "Electronics", "device_type": "Desktop", "is_international": 0, "true_label": 0, "probability": 0.0006990976390898032, "top_features": [{"feature": "Transaction_Frequency", "value": 0.0, "contribution": -0.2634584852158263}, {"feature": "V2", "value": -0.021342951, "contribution": -0.07571424772009223}, {"feature": "Location_Distance", "value": 1.3586051775401204, "contribution": -0.047870468583310115}, {"feature": "Is_International", "value": 0.0, "contribution": -0.036035722720226225}, {"feature": "V4", "value": 0.5838365855346236, "contribution": -0.0280092717922028}, {"feature": "Amount_log", "value": 4.970578150421574, "contribution": -0.02792655971697726}]}, {"id": 7214, "amount": 230.929507641276, "hour": 12, "merchant_type": "Electronics", "device_type": "Mobile", "is_international": 0, "true_label": 0, "probability": 0.0006943637528996648, "top_features": [{"feature": "Transaction_Frequency", "value": 2.0, "contribution": -0.24560566435515335}, {"feature": "Location_Distance", "value": 14.342309282964786, "contribution": -0.057379296512296354}, {"feature": "V2", "value": -0.990203974, "contribution": -0.05287375363459018}, {"feature": "Is_International", "value": 0.0, "contribution": -0.04666923665814219}, {"feature": "V3", "value": 1.159344911644286, "contribution": -0.04365537748581891}, {"feature": "V4", "value": 0.1653676477225442, "contribution": -0.03509141550396927}]}, {"id": 9757, "amount": 14.033433468037222, "hour": 8, "merchant_type": "Online", "device_type": "Mobile", "is_international": 0, "true_label": 0, "probability": 0.000776657109160426, "top_features": [{"feature": "Transaction_Frequency", "value": 0.0, "contribution": -0.25115182825221366}, {"feature": "V2", "value": 0.9459979627698588, "contribution": -0.08446800460551558}, {"feature": "Location_Distance", "value": 3.6229596296042192, "contribution": -0.05075695177394138}, {"feature": "V4", "value": -0.71354655, "contribution": -0.043406091064258315}, {"feature": "Is_International", "value": 0.0, "contribution": -0.03735038407739711}, {"feature": "V3", "value": 0.0449581964801466, "contribution": -0.02370387267967755}]}, {"id": 194, "amount": 80.64708177428285, "hour": 10, "merchant_type": "Food", "device_type": "Mobile", "is_international": 0, "true_label": 0, "probability": 0.0006879576197210197, "top_features": [{"feature": "Transaction_Frequency", "value": 0.0, "contribution": -0.20507443676578999}, {"feature": "V2", "value": 1.7189215737230124, "contribution": -0.07092919695262374}, {"feature": "Merchant_Type_Food", "value": 1.0, "contribution": -0.0615237959303017}, {"feature": "Location_Distance", "value": 2.535671220033323, "contribution": -0.04404084845509722}, {"feature": "V4", "value": -0.891509078, "contribution": -0.03524368123391174}, {"feature": "Is_International", "value": 0.0, "contribution": -0.02997421212963811}]}, {"id": 3493, "amount": 92.03191156452846, "hour": 23, "merchant_type": "Retail", "device_type": "Mobile", "is_international": 0, "true_label": 0, "probability": 0.0011886655021190586, "top_features": [{"feature": "Transaction_Frequency", "value": 2.0, "contribution": -0.24296586322576108}, {"feature": "V2", "value": -2.254357673, "contribution": 0.11301199725205906}, {"feature": "Merchant_Type_Retail", "value": 1.0, "contribution": -0.1107017543695537}, {"feature": "Location_Distance", "value": 10.66744809940556, "contribution": -0.06456805853503803}, {"feature": "Is_International", "value": 0.0, "contribution": -0.05055472802451038}, {"feature": "V4", "value": -0.570868509, "contribution": -0.050470416173881184}]}, {"id": 286, "amount": 177.15493447493614, "hour": 21, "merchant_type": "Retail", "device_type": "Desktop", "is_international": 0, "true_label": 0, "probability": 0.0006869216145883759, "top_features": [{"feature": "Transaction_Frequency", "value": 1.0, "contribution": -0.23378824699757078}, {"feature": "V2", "value": 0.9066790317028058, "contribution": -0.0778892274183866}, {"feature": "Merchant_Type_Retail", "value": 1.0, "contribution": -0.07188546979382532}, {"feature": "Location_Distance", "value": 15.055397809261777, "contribution": -0.047474835626470833}, {"feature": "Is_International", "value": 0.0, "contribution": -0.035826370681660925}, {"feature": "V3", "value": -1.682468896, "contribution": 0.035802898828751886}]}, {"id": 8588, "amount": 77.13878683906752, "hour": 19, "merchant_type": "Retail", "device_type": "Mobile", "is_international": 0, "true_label": 0, "probability": 0.0006894137950175412, "top_features": [{"feature": "Transaction_Frequency", "value": 0.0, "contribution": -0.20567929860524525}, {"feature": "V2", "value": 1.6131575009588837, "contribution": -0.06689314707565559}, {"feature": "Merchant_Type_Retail", "value": 1.0, "contribution": -0.06566404043811891}, {"feature": "Location_Distance", "value": 18.664193197385305, "contribution": -0.041373998539543065}, {"feature": "V4", "value": -0.175714532, "contribution": -0.030499600821167688}, {"feature": "V3", "value": 1.1756048994600996, "contribution": -0.029352578644245515}]}, {"id": 8352, "amount": 46.77935693588434, "hour": 9, "merchant_type": "Travel", "device_type": "Desktop", "is_international": 0, "true_label": 0, "probability": 0.0006793985331368258, "top_features": [{"feature": "Transaction_Frequency", "value": 2.0, "contribution": -0.2064502148373435}, {"feature": "V2", "value": 1.2492893562748564, "contribution": -0.0920044322650616}, {"feature": "Location_Distance", "value": 0.5268415927535697, "contribution": -0.04896995282199352}, {"feature": "Is_International", "value": 0.0, "contribution": -0.03637516119486548}, {"feature": "V4", "value": -0.074071069, "contribution": -0.03350392993960761}, {"feature": "Amount_log", "value": 3.866593682951595, "contribution": -0.03279562042876632}]}, {"id": 9483, "amount": 263.2448988587572, "hour": 18, "merchant_type": "Online", "device_type": "Mobile", "is_international": 0, "true_label": 0, "probability": 0.0008744292310882319, "top_features": [{"feature": "Transaction_Frequency", "value": 1.0, "contribution": -0.3100732655108738}, {"feature": "V2", "value": 0.09373258, "contribution": -0.08606724280794427}, {"feature": "Location_Distance", "value": 6.535217810492353, "contribution": -0.054398524900668245}, {"feature": "Is_International", "value": 0.0, "contribution": -0.03800698371700524}, {"feature": "V4", "value": 1.5720814659343856, "contribution": 0.030434881626891876}, {"feature": "Hour_of_Day", "value": 18.0, "contribution": -0.017795471771925322}]}, {"id": 4219, "amount": 104.57219431883564, "hour": 4, "merchant_type": "Food", "device_type": "POS", "is_international": 0, "true_label": 0, "probability": 0.0006833097607524311, "top_features": [{"feature": "Transaction_Frequency", "value": 1.0, "contribution": -0.16874072843189858}, {"feature": "Device_Type_POS", "value": 1.0, "contribution": -0.07962995709764717}, {"feature": "Merchant_Type_Food", "value": 1.0, "contribution": -0.05487409655898879}, {"feature": "V2", "value": -0.037894257, "contribution": -0.05245407386278654}, {"feature": "Location_Distance", "value": 0.6279650597332085, "contribution": -0.03638569475691606}, {"feature": "V4", "value": -1.098032676, "contribution": -0.030983695837956526}]}, {"id": 8280, "amount": 124.0916391066778, "hour": 15, "merchant_type": "Food", "device_type": "POS", "is_international": 0, "true_label": 0, "probability": 0.0007703521167799113, "top_features": [{"feature": "Transaction_Frequency", "value": 0.0, "contribution": -0.20361328481554203}, {"feature": "Device_Type_POS", "value": 1.0, "contribution": -0.09306427658057394}, {"feature": "Merchant_Type_Food", "value": 1.0, "contribution": -0.06168119981929584}, {"feature": "V4", "value": -1.763987335, "contribution": -0.03877098445305223}, {"feature": "Is_International", "value": 0.0, "contribution": -0.02970595730170189}, {"feature": "V2", "value": -1.730312606, "contribution": 0.028023789544835066}]}, {"id": 1951, "amount": 233.25159819999064, "hour": 8, "merchant_type": "Travel", "device_type": "POS", "is_international": 0, "true_label": 0, "probability": 0.0006792695111367897, "top_features": [{"feature": "Transaction_Frequency", "value": 1.0, "contribution": -0.18748821254386816}, {"feature": "Device_Type_POS", "value": 1.0, "contribution": -0.09043885302486857}, {"feature": "V2", "value": -0.064766457, "contribution": -0.059001441806307564}, {"feature": "Location_Distance", "value": 21.94817813, "contribution": -0.03654011760227471}, {"feature": "V4", "value": -0.932268327, "contribution": -0.03484295941083508}, {"feature": "Is_International", "value": 0.0, "contribution": -0.028797273501279513}]}, {"id": 4119, "amount": 103.59789162734285, "hour": 0, "merchant_type": "Travel", "device_type": "Mobile", "is_international": 1, "true_label": 0, "probability": 0.0008846710904099455, "top_features": [{"feature": "Transaction_Frequency", "value": 0.0, "contribution": -0.3202996543885128}, {"feature": "V2", "value": 0.46364163, "contribution": -0.09061585199634165}, {"feature": "Is_International", "value": 1.0, "contribution": 0.06729495803827934}, {"feature": "Location_Distance", "value": 26.890497350913915, "contribution": -0.04984480270837792}, {"feature": "V4", "value": -0.364007673, "contribution": -0.04460615957196909}, {"feature": "V3", "value": 0.5801534441242598, "contribution": -0.04237700073758862}]}, {"id": 1131, "amount": 46.33399446142499, "hour": 15, "merchant_type": "Electronics", "device_type": "Desktop", "is_international": 0, "true_label": 0, "probability": 0.0006792950592267479, "top_features": [{"feature": "Transaction_Frequency", "value": 1.0, "contribution": -0.23808738384043887}, {"feature": "V2", "value": 2.050940379798099, "contribution": -0.0846534811565764}, {"feature": "Location_Distance", "value": 27.809641489846317, "contribution": -0.039925724991689095}, {"feature": "Is_International", "value": 0.0, "contribution": -0.03429632279880923}, {"feature": "V4", "value": 0.001891028, "contribution": -0.03010361816430567}, {"feature": "Amount_log", "value": 3.8572287363305007, "contribution": -0.028626708546112416}]}, {"id": 9058, "amount": 67.82130634484837, "hour": 9, "merchant_type": "Electronics", "device_type": "Desktop", "is_international": 0, "true_label": 0, "probability": 0.000685887814880495, "top_features": [{"feature": "Transaction_Frequency", "value": 0.0, "contribution": -0.25519085129728725}, {"feature": "V2", "value": -0.381125899, "contribution": -0.0654548929778262}, {"feature": "Location_Distance", "value": 13.177423669833129, "contribution": -0.047089104574923504}, {"feature": "V4", "value": -0.554427406, "contribution": -0.039342956928813864}, {"feature": "Is_International", "value": 0.0, "contribution": -0.03481346204544222}, {"feature": "Amount_log", "value": 4.2315133822416096, "contribution": -0.02879046646319439}]}, {"id": 8420, "amount": 165.59951054562407, "hour": 19, "merchant_type": "Online", "device_type": "Mobile", "is_international": 1, "true_label": 0, "probability": 0.0022051742704142607, "top_features": [{"feature": "Transaction_Frequency", "value": 2.0, "contribution": -0.2864760858880155}, {"feature": "V2", "value": 0.7534521007216852, "contribution": -0.1338821272702814}, {"feature": "Is_International", "value": 1.0, "contribution": 0.0899842902045342}, {"feature": "Location_Distance", "value": 0.7685469748761177, "contribution": -0.06448712858368613}, {"feature": "Amount_log", "value": 5.1155927918270105, "contribution": -0.040005011708020816}, {"feature": "V4", "value": 0.1237130948900453, "contribution": -0.037644431813774}]}, {"id": 2022, "amount": 220.1919483652662, "hour": 1, "merchant_type": "Electronics", "device_type": "Desktop", "is_international": 0, "true_label": 0, "probability": 0.6559093685009462, "top_features": [{"feature": "Transaction_Frequency", "value": 5.0, "contribution": 0.30451508480537504}, {"feature": "V2", "value": 1.7690620531528607, "contribution": -0.18609456895978946}, {"feature": "Location_Distance", "value": 0.4237293340601604, "contribution": -0.0731961733138034}, {"feature": "V3", "value": -1.862588653, "contribution": 0.06655434402721148}, {"feature": "V4", "value": -0.015440909, "contribution": -0.059649910159525074}, {"feature": "Is_International", "value": 0.0, "contribution": -0.049674508067917754}]}, {"id": 901, "amount": 78.86125097972823, "hour": 12, "merchant_type": "Travel", "device_type": "POS", "is_international": 0, "true_label": 0, "probability": 0.0006915165997140384, "top_features": [{"feature": "Transaction_Frequency", "value": 0.0, "contribution": -0.22317308124376184}, {"feature": "Device_Type_POS", "value": 1.0, "contribution": -0.10342236654383785}, {"feature": "Location_Distance", "value": 7.990831405037868, "contribution": -0.041212019854043574}, {"feature": "V4", "value": -0.294912268, "contribution": -0.035351187795193084}, {"feature": "Is_International", "value": 0.0, "contribution": -0.03226267351732489}, {"feature": "V3", "value": 0.5578766442638786, "contribution": -0.029550643814542803}]}, {"id": 1002, "amount": 37.4155842611416, "hour": 15, "merchant_type": "Retail", "device_type": "Desktop", "is_international": 0, "true_label": 0, "probability": 0.0006857477500479313, "top_features": [{"feature": "Transaction_Frequency", "value": 1.0, "contribution": -0.2391091856730357}, {"feature": "Merchant_Type_Retail", "value": 1.0, "contribution": -0.07220532547567038}, {"feature": "V2", "value": -0.079911098, "contribution": -0.06044489010879492}, {"feature": "Location_Distance", "value": 26.710340280633577, "contribution": -0.04177395940940635}, {"feature": "Is_International", "value": 0.0, "contribution": -0.032978452039134264}, {"feature": "Amount_log", "value": 3.6484632173967446, "contribution": -0.028052217068129028}]}, {"id": 6179, "amount": 147.46694681182333, "hour": 13, "merchant_type": "Travel", "device_type": "POS", "is_international": 0, "true_label": 0, "probability": 0.0006793071330530414, "top_features": [{"feature": "Transaction_Frequency", "value": 0.0, "contribution": -0.19082923757092662}, {"feature": "Device_Type_POS", "value": 1.0, "contribution": -0.0895393237242694}, {"feature": "V2", "value": 0.005824058, "contribution": -0.05757134184539605}, {"feature": "Location_Distance", "value": 21.12912363152808, "contribution": -0.03500480828103619}, {"feature": "V3", "value": 1.3241294017906728, "contribution": -0.027528878549304008}, {"feature": "Is_International", "value": 0.0, "contribution": -0.027009875325393718}]}, {"id": 2740, "amount": 109.31800385223784, "hour": 21, "merchant_type": "Online", "device_type": "POS", "is_international": 0, "true_label": 0, "probability": 0.0006791728672669398, "top_features": [{"feature": "Transaction_Frequency", "value": 0.0, "contribution": -0.19385232654795714}, {"feature": "Device_Type_POS", "value": 1.0, "contribution": -0.09133792421008881}, {"feature": "V2", "value": -0.079691301, "contribution": -0.05614185574640776}, {"feature": "Location_Distance", "value": 17.31191451461394, "contribution": -0.03590194378670721}, {"feature": "Is_International", "value": 0.0, "contribution": -0.027846169015322202}, {"feature": "Amount_log", "value": 4.703367139161064, "contribution": -0.02577243140533592}]}, {"id": 4018, "amount": 55.98331437003222, "hour": 0, "merchant_type": "Travel", "device_type": "Desktop", "is_international": 0, "true_label": 0, "probability": 0.0012543857646280284, "top_features": [{"feature": "Transaction_Frequency", "value": 0.0, "contribution": -0.3699020317663094}, {"feature": "V2", "value": -1.980571968, "contribution": 0.08676243316844297}, {"feature": "Location_Distance", "value": 0.8247543914066665, "contribution": -0.05299576370141092}, {"feature": "Is_International", "value": 0.0, "contribution": -0.048042176378049674}, {"feature": "Amount_log", "value": 4.042758494630346, "contribution": -0.0391439664908217}, {"feature": "V4", "value": 0.098206146, "contribution": -0.032474545082846404}]}, {"id": 8738, "amount": 166.22608266628723, "hour": 13, "merchant_type": "Travel", "device_type": "Desktop", "is_international": 1, "true_label": 0, "probability": 0.0016479346824435582, "top_features": [{"feature": "Transaction_Frequency", "value": 1.0, "contribution": -0.3487926728313054}, {"feature": "V2", "value": -0.616252794, "contribution": -0.08531430536376008}, {"feature": "Is_International", "value": 1.0, "contribution": 0.07363339678744299}, {"feature": "Location_Distance", "value": 20.808038008366072, "contribution": -0.05263822243573906}, {"feature": "V4", "value": 1.7705707820409242, "contribution": 0.03971426090201269}, {"feature": "Amount_log", "value": 5.119346685292302, "contribution": -0.03524303613570222}]}]};
+const RISK_NOTICE = "Ce système ne bloque jamais automatiquement une transaction : toute alerte doit être examinée par un analyste avant toute action.";
+
+let state = { filter: 'all', sortKey: 'probability', sortDir: 'desc', selectedId: null };
+
+function fmtPct(x){ return (x*100).toFixed(1) + '%'; }
+function fmtEuro(x){ return x.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' €'; }
+function riskColor(p){
+  if(p >= 0.7) return 'var(--signal-red)';
+  if(p >= DEMO_DATA.threshold_default) return 'var(--signal-amber)';
+  return 'var(--signal-teal)';
+}
+
+function renderNotices(){
+  document.getElementById('governanceNotice').innerHTML = `⚖️ <b>Gouvernance :</b> ${RISK_NOTICE}`;
+  if(DEMO_DATA.kpis.near_perfect){
+    document.getElementById('caveatNotice').innerHTML =
+      `🔎 <b>Constat sur les données :</b> ce corpus permet une séparation quasi parfaite ` +
+      `(PR-AUC/ROC-AUC ≈ 1,0) — inhabituel pour de la fraude bancaire réelle, ce qui suggère un ` +
+      `jeu à vocation pédagogique plutôt que des transactions brutes non filtrées. Résultats réels, ` +
+      `non truqués, mais à ne pas généraliser à un contexte de production.`;
+  } else {
+    document.getElementById('caveatNotice').style.display = 'none';
+  }
+}
+
+function renderKpis(){
+  const k = DEMO_DATA.kpis;
+  const items = [
+    ['Transactions analysées', k.n_rows.toLocaleString('fr-FR')],
+    ['Taux de fraude réel', (k.fraud_rate*100).toFixed(1)+'%'],
+    ['PR-AUC (test)', k.pr_auc.toFixed(3)],
+    ['ROC-AUC (test)', k.roc_auc.toFixed(3)],
+    ['Taux de faux positifs', (k.fpr*100).toFixed(2)+'%'],
+    ['Fidélité SHAP/LIME', k.fidelity.toFixed(3)],
+  ];
+  document.getElementById('kpiStrip').innerHTML = items.map(([label,val],i)=>
+    `<div class="kpi${i>=2?' warn':''}"><div class="kpi-label">${label}</div><div class="kpi-value">${val}</div></div>`
+  ).join('');
+}
+
+function renderFilters(){
+  const filters = [['all','Toutes'], ['fraud','Fraudes réelles'], ['legit','Légitimes réelles'], ['flagged','Signalées']];
+  document.getElementById('filters').innerHTML = filters.map(([key,label])=>
+    `<button class="chip${state.filter===key?' active':''}" data-filter="${key}">${label}</button>`
+  ).join('');
+  document.querySelectorAll('.chip').forEach(el=>{
+    el.addEventListener('click', ()=>{ state.filter = el.dataset.filter; renderFilters(); renderLedger(); });
+  });
+}
+
+function getFilteredSorted(){
+  let rows = DEMO_DATA.transactions.slice();
+  if(state.filter==='fraud') rows = rows.filter(r=>r.true_label===1);
+  if(state.filter==='legit') rows = rows.filter(r=>r.true_label===0);
+  if(state.filter==='flagged') rows = rows.filter(r=>r.probability>=DEMO_DATA.threshold_default);
+  rows.sort((a,b)=>{
+    const d = state.sortDir==='asc' ? 1 : -1;
+    return a[state.sortKey] > b[state.sortKey] ? d : a[state.sortKey] < b[state.sortKey] ? -d : 0;
+  });
+  return rows;
+}
+
+function renderLedger(){
+  const rows = getFilteredSorted();
+  document.getElementById('ledgerBody').innerHTML = rows.map(r=>`
+    <tr data-id="${r.id}" class="${state.selectedId===r.id?'selected':''}">
+      <td>#${r.id}</td>
+      <td class="amount">${fmtEuro(r.amount)}</td>
+      <td>${r.merchant_type}</td>
+      <td>${r.device_type}</td>
+      <td><span class="badge ${r.true_label===1?'fraud':'legit'}">${r.true_label===1?'Fraude':'Légitime'}</span></td>
+      <td class="proba" style="color:${riskColor(r.probability)}">${fmtPct(r.probability)}</td>
+    </tr>
+  `).join('');
+  document.querySelectorAll('#ledgerBody tr').forEach(tr=>{
+    tr.addEventListener('click', ()=>{ state.selectedId = parseInt(tr.dataset.id); renderLedger(); renderInspector(); });
+  });
+}
+
+document.querySelectorAll('thead th[data-sort]').forEach(th=>{
+  th.addEventListener('click', ()=>{
+    const key = th.dataset.sort;
+    if(state.sortKey===key) state.sortDir = state.sortDir==='asc' ? 'desc' : 'asc';
+    else { state.sortKey = key; state.sortDir = 'desc'; }
+    renderLedger();
+  });
+});
+
+function polar(cx,cy,r,angleDeg){ const a=(angleDeg-90)*Math.PI/180; return {x:cx+r*Math.cos(a), y:cy+r*Math.sin(a)}; }
+function gaugeSvg(p){
+  const angle = -90 + p*180, cx=110, cy=100, r=82;
+  const zones = [{from:0,to:0.4,color:'var(--signal-teal)'},{from:0.4,to:0.7,color:'var(--signal-amber)'},{from:0.7,to:1.0,color:'var(--signal-red)'}];
+  const arcs = zones.map(z=>{
+    const a0=-90+z.from*180, a1=-90+z.to*180, p0=polar(cx,cy,r,a0), p1=polar(cx,cy,r,a1), largeArc=(a1-a0)>180?1:0;
+    return `<path d="M ${p0.x} ${p0.y} A ${r} ${r} 0 ${largeArc} 1 ${p1.x} ${p1.y}" stroke="${z.color}" stroke-width="13" fill="none" opacity="0.9"/>`;
+  }).join('');
+  const needleEnd = polar(cx,cy,r-16,angle);
+  return `<svg viewBox="0 0 220 118" width="220" height="118">${arcs}
+    <line x1="${cx}" y1="${cy}" x2="${needleEnd.x}" y2="${needleEnd.y}" stroke="var(--text-hi)" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="${cx}" cy="${cy}" r="6" fill="var(--text-hi)"/></svg>`;
+}
+
+function humanizeFeature(feature, value, contribution){
+  const up = contribution > 0;
+  if(feature === 'Transaction_Frequency') return `un nombre de transactions récentes ${up?'élevé':'peu élevé'} pour ce client (${value.toFixed(0)})`;
+  if(feature === 'Location_Distance') return `une opération réalisée ${up?'loin':'près'} du lieu habituel du client (~${value.toFixed(0)} km)`;
+  if(feature === 'Hour_of_Day') return `un horaire ${up?'inhabituel':'habituel'} (${Math.round(value)}h)`;
+  if(feature === 'Amount_log') return `un montant ${up?'élevé':'dans la norme'} (${Math.expm1(value).toFixed(2)} €)`;
+  if(feature === 'Is_International') return value>=0.5 ? "une opération réalisée à l'étranger" : "une opération réalisée dans le pays du client";
+  if(feature.startsWith('Merchant_Type_')){
+    const cat = feature.replace('Merchant_Type_','');
+    return value>=0.5 ? `un achat chez un commerçant de catégorie « ${cat} »` : `un commerçant qui n'est pas de catégorie « ${cat} »`;
+  }
+  if(feature.startsWith('Device_Type_')){
+    const cat = feature.replace('Device_Type_','');
+    return value>=0.5 ? `une opération réalisée depuis un appareil de type « ${cat} »` : `un appareil qui n'est pas de type « ${cat} »`;
+  }
+  if(/^V\d+$/.test(feature)) return `un indicateur comportemental interne (${feature}) ${up?'nettement supérieur':'nettement inférieur'} au comportement habituel`;
+  return `${feature} = ${value.toFixed(2)}`;
+}
+
+function renderInspector(){
+  const tx = DEMO_DATA.transactions.find(t=>t.id===state.selectedId);
+  if(!tx){ document.getElementById('inspectorContent').innerHTML = '<div class="empty-state">← Sélectionnez une transaction dans le registre</div>'; return; }
+
+  const flagged = tx.probability >= DEMO_DATA.threshold_default;
+  const plainLines = tx.top_features.slice(0,4).map(f=>{
+    const cls = f.contribution>0 ? 'up' : 'down';
+    const arrow = f.contribution>0 ? '🔺' : '🔻';
+    return `<div class="plain-line ${cls}">${arrow} ${humanizeFeature(f.feature, f.value, f.contribution)}</div>`;
+  }).join('');
+
+  document.getElementById('inspectorContent').innerHTML = `
+    <div class="tx-meta">
+      <span>Montant <b>${fmtEuro(tx.amount)}</b></span>
+      <span>Commerçant <b>${tx.merchant_type}</b></span>
+      <span>Appareil <b>${tx.device_type}</b></span>
+      <span>${tx.is_international ? 'International' : 'Domestique'}</span>
+    </div>
+    <div class="gauge-wrap">
+      ${gaugeSvg(tx.probability)}
+      <div class="gauge-readout" style="color:${riskColor(tx.probability)}">${fmtPct(tx.probability)}</div>
+      <div class="gauge-sub">score de risque (calibré)</div>
+    </div>
+    <div class="decision-line" style="color:${riskColor(tx.probability)}">
+      ${flagged ? '🚩 Signalée pour vérification' : '✅ Laissée passer'}
+      <span style="color:var(--text-dim)"> — seuil ${fmtPct(DEMO_DATA.threshold_default)}</span>
+    </div>
+    <div class="contrib-title">En langage clair</div>
+    ${plainLines}
+    <button class="ai-btn" id="aiBtn">✨ Générer le rapport d'alerte (Claude)</button>
+    <div class="ai-result" id="aiResult"></div>
+  `;
+  document.getElementById('aiBtn').addEventListener('click', ()=>generateAiExplanation(tx, flagged));
+}
+
+async function generateAiExplanation(tx, flagged){
+  const btn = document.getElementById('aiBtn');
+  const resultEl = document.getElementById('aiResult');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Rédaction en cours...';
+  resultEl.style.display = 'none';
+
+  const factorLines = tx.top_features.slice(0,5).map(f=>
+    `- ${humanizeFeature(f.feature, f.value, f.contribution)} → ${f.contribution>0?'fait monter':'fait plutôt baisser'} le niveau de risque estimé`
+  ).join('\n');
+  const niveau = tx.probability >= 0.7 ? 'élevé' : tx.probability >= DEMO_DATA.threshold_default ? 'à surveiller' : 'faible';
+
+  const prompt = `Tu rédiges, pour l'équipe CONFORMITÉ d'une banque (lectorat non technique), un COURT rapport d'alerte sur une transaction jugée à risque par notre système de surveillance.
+
+RÈGLES DE TON (impératives) :
+- Français, 4 à 6 phrases, comme un collègue qui explique un dossier à l'oral — pas de ton robotique.
+- AUCUN jargon technique : pas de "SHAP", "modèle", "algorithme", "score calibré", "feature", "intelligence artificielle". Ne te présente jamais comme une IA.
+
+RÈGLE DE GOUVERNANCE (impérative) :
+- Ce système NE BLOQUE JAMAIS automatiquement une transaction. Ta recommandation finale doit TOUJOURS être une recommandation DE REVUE HUMAINE, jamais une action déjà prise (ne dis jamais "bloquez" ni "a été bloquée").
+
+Dossier :
+- Montant : ${tx.amount.toFixed(2)} €
+- Commerçant : ${tx.merchant_type} · Appareil : ${tx.device_type} · ${tx.is_international ? 'International' : 'Domestique'}
+- Niveau de risque estimé : ${niveau} (${(tx.probability*100).toFixed(0)}%)
+- Statut : ${flagged ? 'SIGNALÉE pour vérification' : 'Laissée passer'}
+
+Facteurs ayant motivé cette alerte (à reformuler naturellement, ne pas recopier en liste) :
+${factorLines}
+
+Termine par une recommandation proportionnée au niveau de risque et une phrase rappelant que c'est une estimation, pas une certitude.`;
+
+  try{
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 500, messages: [{ role: "user", content: prompt }] })
+    });
+    const data = await response.json();
+    let text = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n').trim();
+    if(!text) throw new Error('Réponse vide');
+    if(!text.includes('revue') && !text.includes('analyste')) text += `\n\n${RISK_NOTICE}`;
+    resultEl.innerHTML = `<span class="ai-source-tag">🤖 Rédigé par Claude</span>${text.replace(/\n/g,'<br>')}`;
+  }catch(err){
+    resultEl.innerHTML = `<span class="ai-source-tag" style="color:var(--text-dim)">⚠️ Rapport IA indisponible</span>
+      L'appel a échoué dans ce contexte (${err.message}). Dans l'application Streamlit complète, un
+      générateur par règles (même ton, mêmes garanties de gouvernance) prend automatiquement le relais.`;
+  }finally{
+    btn.disabled = false;
+    btn.innerHTML = "✨ Générer le rapport d'alerte (Claude)";
+    resultEl.style.display = 'block';
+  }
+}
+
+renderNotices();
+renderKpis();
+renderFilters();
+renderLedger();
+if(DEMO_DATA.transactions.length){
+  state.selectedId = DEMO_DATA.transactions.find(t=>t.true_label===1)?.id ?? DEMO_DATA.transactions[0].id;
+  renderLedger();
+  renderInspector();
+}
+</script>
+</body>
+</html>
