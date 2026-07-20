@@ -246,4 +246,4 @@ données de production réelles (voir section Biais ci-dessus).
 | Fidélité des explications | Onglet *Performance* + *Explicabilité* |
 | Faux positifs (gouvernance) | Onglet *Performance* + *Biais & gouvernance* |
 
----
+---# FRAUD_DETECTOR_PROJECT
